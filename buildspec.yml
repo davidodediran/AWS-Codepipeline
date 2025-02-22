@@ -7,6 +7,8 @@ phases:
       - sudo yum update -y
       - sudo amazon-linux-extras enable docker
       - sudo yum install -y docker git
+      - sudo service docker start
+      - sudo usermod -aG docker ec2-user
       - git clone https://github.com/davidodediran/AWS-Codepipeline.git
       - cd AWS-Codepipeline
       - sudo service docker start
@@ -23,10 +25,7 @@ phases:
     commands:
       - echo "Running the new container with index.html..."
       - docker run -d -p 80:80 --name cat-family cat-family
-      - echo "Verifying if index.html is served correctly..."
-      - curl -I http://localhost || echo "Failed to access index.html"
-      - echo "Deployment complete!"
 
 artifacts:
   files:
-    - buildspec.yml
+    - simpleDeploy
