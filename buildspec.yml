@@ -3,24 +3,29 @@ version: 0.2
 phases:
   pre_build:
     commands:
-      - echo Logging in to Amazon ECR...
-      - aws ecr get-login-password --region $AWS_DEFAULT_REGION | docker login --username AWS --password-stdin $AWS_ACCOUNT_ID.dkr.ecr.$AWS_DEFAULT_REGION.amazonaws.com
-      - REPOSITORY_URI=$AWS_ACCOUNT_ID.dkr.ecr.$AWS_DEFAULT_REGION.amazonaws.com/$IMAGE_REPO_NAME
-      - COMMIT_HASH=$(echo $CODEBUILD_RESOLVED_SOURCE_VERSION | cut -c 1-7)
-      - IMAGE_TAG=${COMMIT_HASH:=latest}
+      - echo "Updating EC2 instance and installing dependencies..."
+      - sudo yum update -y
+      - sudo amazon-linux-extras enable docker
+      - sudo yum install -y docker git
+      - sudo service docker start
+      - sudo usermod -aG docker ec2-user
+      - echo "Dependencies installed successfully!"
+
   build:
     commands:
-      - echo Build started on `date`
-      - echo Building the Docker image... 
-      - docker build -t $REPOSITORY_URI:latest .
-      - docker tag $REPOSITORY_URI:latest $REPOSITORY_URI:$IMAGE_TAG    
+      - echo "Building the Docker image..."
+      - docker build -t my-local-nginx .
+      - echo "Docker image built successfully!"
+
   post_build:
     commands:
-      - echo Build completed on `date`
-      - echo Pushing the Docker image...
-      - docker push $REPOSITORY_URI:latest
-      - docker push $REPOSITORY_URI:$IMAGE_TAG
-      - echo Writing image definitions file...
-      - printf '[{"name":"%s","imageUri":"%s"}]' "$IMAGE_REPO_NAME" "$REPOSITORY_URI:$IMAGE_TAG" > imagedefinitions.json
+      - echo "Stopping any existing containers..."
+      - docker stop my-nginx-container || true
+      - docker rm my-nginx-container || true
+      - echo "Running the new container..."
+      - docker run -d -p 80:80 --name my-nginx-container my-local-nginx
+      - echo "Deployment complete!"
+
 artifacts:
-  files: imagedefinitions.json
+  files:
+    - buildspec.yml
